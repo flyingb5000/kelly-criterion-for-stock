@@ -1,0 +1,76 @@
+{
+    "cash": 4000.0,
+    "stocks": [
+        {
+            "ticker": "GOOG",
+            "shares": 14,
+            "avg_price": 196.03,
+            "current_price": 156.06,
+            "value": 2184.84,
+            "sentiment": "\u6a2a\u76d8\u9707\u8361",
+            "profit_loss": -559.5799999999999,
+            "profit_loss_percent": -20.38973626485742,
+            "kelly_position": 25.0,
+            "ma_position": 0,
+            "position_advice": "\u51ef\u5229\u516c\u5f0f\u5efa\u8bae\u4ed3\u4f4d: 25.0%, \u5747\u7ebf\u5efa\u8bae\u4ed3\u4f4d: 0.0%\n",
+            "daily_change": -4.887859580692351
+        },
+        {
+            "ticker": "NVDA",
+            "shares": 15,
+            "avg_price": 132.14,
+            "current_price": 109.67,
+            "value": 1645.05,
+            "sentiment": "\u6a2a\u76d8\u9707\u8361",
+            "profit_loss": -337.0499999999998,
+            "profit_loss_percent": -17.004691993340387,
+            "kelly_position": 16.666666666666664,
+            "ma_position": 0,
+            "position_advice": "\u51ef\u5229\u516c\u5f0f\u5efa\u8bae\u4ed3\u4f4d: 16.7%, \u5747\u7ebf\u5efa\u8bae\u4ed3\u4f4d: 0.0%\n\u98ce\u9669\u63a7\u5236: \u8dcc\u7834\u4e70\u5165\u4ef73%\uff08\u6b62\u635f\u673a\u5236\uff09, \u5efa\u8bae\u6e05\u4ed3 100%\n\u8b66\u544a: \u73b0\u91d1\u6bd4\u4f8b\u4f4e\u4e8e30%\uff0c\u5efa\u8bae\u4fdd\u6301\u8db3\u591f\u7684\u73b0\u91d1\n",
+            "daily_change": -1.5794669299111594
+        },
+        {
+            "ticker": "MSFT",
+            "shares": 5,
+            "avg_price": 415.0,
+            "current_price": 378.8,
+            "value": 1894.0,
+            "sentiment": "\u6a2a\u76d8\u9707\u8361",
+            "profit_loss": -180.99999999999994,
+            "profit_loss_percent": -8.722891566265059,
+            "kelly_position": 16.666666666666664,
+            "ma_position": 0,
+            "position_advice": "\u51ef\u5229\u516c\u5f0f\u5efa\u8bae\u4ed3\u4f4d: 16.7%, \u5747\u7ebf\u5efa\u8bae\u4ed3\u4f4d: 0.0%\n\u98ce\u9669\u63a7\u5236: \u76c8\u5229\u8fbe\u523015%\uff08\u6b62\u76c8\u673a\u5236\uff09, \u5efa\u8bae\u6b62\u76c8 33%\n\u8b66\u544a: \u73b0\u91d1\u6bd4\u4f8b\u4f4e\u4e8e30%\uff0c\u5efa\u8bae\u4fdd\u6301\u8db3\u591f\u7684\u73b0\u91d1\n\u8b66\u544a: \u5355\u80a1\u4ed3\u4f4d\u8d85\u8fc725%\uff0c\u5efa\u8bae\u5206\u6563\u6295\u8d44\n",
+            "daily_change": -3.016027446361814
+        },
+        {
+            "ticker": "QQQ",
+            "shares": 11,
+            "avg_price": 479.0,
+            "current_price": 468.94,
+            "value": 5158.34,
+            "sentiment": "\u6a2a\u76d8\u9707\u8361",
+            "profit_loss": -110.66000000000003,
+            "profit_loss_percent": -2.100208768267224,
+            "kelly_position": 0,
+            "ma_position": 0,
+            "position_advice": "",
+            "daily_change": -2.6327810306880957
+        },
+        {
+            "ticker": "SPY",
+            "shares": 14,
+            "avg_price": 585.6,
+            "current_price": 555.66,
+            "value": 7779.24,
+            "sentiment": "\u6a2a\u76d8\u9707\u8361",
+            "profit_loss": -419.16000000000076,
+            "profit_loss_percent": -5.112704918032796,
+            "kelly_position": 16.666666666666664,
+            "ma_position": 0,
+            "position_advice": "\u51ef\u5229\u516c\u5f0f\u5efa\u8bae\u4ed3\u4f4d: 16.7%, \u5747\u7ebf\u5efa\u8bae\u4ed3\u4f4d: 0.0%\n\u98ce\u9669\u63a7\u5236: \u8dcc\u7834\u4e70\u5165\u4ef73%\uff08\u6b62\u635f\u673a\u5236\uff09, \u5efa\u8bae\u6e05\u4ed3 100%\n\u8b66\u544a: \u73b0\u91d1\u6bd4\u4f8b\u4f4e\u4e8e30%\uff0c\u5efa\u8bae\u4fdd\u6301\u8db3\u591f\u7684\u73b0\u91d1\n\u8b66\u544a: \u5355\u80a1\u4ed3\u4f4d\u8d85\u8fc725%\uff0c\u5efa\u8bae\u5206\u6563\u6295\u8d44\n",
+            "daily_change": -2.0138252098469476
+        }
+    ],
+    "total_value": 22661.47
+}
