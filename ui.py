@@ -121,36 +121,21 @@ class StockPortfolioApp:
         signal = macd.ewm(span=9, adjust=False).mean()
         hist_macd = macd - signal
         
-        # 使用numpy的方式处理MACD直方图，避免Series比较的问题
-        import numpy as np
-        # 确保数据是一维数组
-        if isinstance(hist_macd, pd.Series):
-            hist_macd_values = hist_macd.values
-        else:
-            hist_macd_values = hist_macd
-            
-        # 创建正值和负值掩码
-        positive_mask = hist_macd_values >= 0
-        negative_mask = hist_macd_values < 0
-        
-        # 使用掩码绘制直方图 - 修复索引错误
+        # 简化MACD直方图绘制逻辑，使用numpy的where函数和颜色掩码替代复杂的列表推导式
         try:
-            # 安全地绘制MACD直方图
-            positive_dates = [dates[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] >= 0]
-            positive_values = [hist_macd_values[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] >= 0]
+            # 转换为numpy数组
+            hist_macd_values = hist_macd.values if isinstance(hist_macd, pd.Series) else hist_macd
             
-            negative_dates = [dates[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] < 0]
-            negative_values = [hist_macd_values[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] < 0]
+            # 确保长度一致
+            min_length = min(len(dates), len(hist_macd_values))
+            plot_dates = dates[:min_length]
+            plot_values = hist_macd_values[:min_length]
             
-            # 分别绘制正值和负值
-            if positive_dates:
-                ax2.bar(positive_dates, positive_values, color='#4CAF50', alpha=0.7, width=1)
-            if negative_dates:
-                ax2.bar(negative_dates, negative_values, color='#F44336', alpha=0.7, width=1)
+            # 使用颜色掩码绘制
+            colors = np.where(plot_values >= 0, '#4CAF50', '#F44336')
+            ax2.bar(plot_dates, plot_values, color=colors, alpha=0.7, width=1)
         except Exception as e:
             print(f"Error plotting MACD histogram: {e}")
-            # 如果出现任何错误，跳过直方图绘制
-            pass
         
         ax2.plot(dates, macd, label='MACD', color='#2196F3', linewidth=1.5)
         ax2.plot(dates, signal, label='Signal', color='#FF9800', linewidth=1.5)
@@ -430,9 +415,6 @@ class StockPortfolioApp:
         self.advice_text.insert(tk.END, selected_stock['position_advice'])
         self.advice_text.config(state=tk.DISABLED)
         
-        # 确保所有标签都更新到最新状态
-        self.detail_frame.update_idletasks()
-        
         # 更新图表 - 强制重绘
         self.figure.clear()  # 确保先清除旧图表
         
@@ -443,16 +425,24 @@ class StockPortfolioApp:
         # 调用更新图表方法
         self.update_chart(ticker)
         
+        # 强制刷新UI
+        self.refresh_ui()
+        
+    def refresh_ui(self):
+        """强制刷新UI组件，确保图表和详细信息正确显示"""
+        # 确保所有标签都更新到最新状态
+        self.detail_frame.update_idletasks()
+        
+        # 强制处理所有待处理的事件，确保UI状态更新
+        self.root.update()
+        self.root.update_idletasks()
+        
         # 强制刷新画布并处理事件，确保图表立即显示
         self.canvas.draw()
         try:
             self.canvas.flush_events()
         except:
             pass  # 某些版本的matplotlib可能不支持flush_events
-        
-        # 强制处理所有待处理的事件并更新整个窗口
-        self.root.update()
-        self.root.update_idletasks()
         
         # 确保图表框架完全更新
         self.chart_frame.update()
