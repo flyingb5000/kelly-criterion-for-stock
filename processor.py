@@ -2,10 +2,13 @@ import json
 import yfinance as yf
 import pandas as pd
 import numpy as np
-# 暂时移除matplotlib相关导入
-# import matplotlib.pyplot as plt
-# from matplotlib.figure import Figure
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+# 设置matplotlib后端
+import matplotlib
+matplotlib.use('TkAgg')
+# matplotlib相关导入
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import datetime
 import os
 
@@ -164,10 +167,119 @@ class StockProcessor:
             return pd.DataFrame()
             
     def plot_stock_chart(self, ticker, figure=None, period='1y'):
-        """绘制股票价格图表和MACD指标 - 暂时禁用"""
-        # 图表功能暂时禁用
-        print(f"图表功能暂时禁用: {ticker}")
-        return None
+        """绘制股票价格图表和MACD指标"""
+        data = self.get_stock_data(ticker, period=period)
+        
+        if data.empty:
+            return None
+        
+        # 计算MACD
+        exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+        macd = exp1 - exp2
+        signal = macd.ewm(span=9, adjust=False).mean()
+        histogram = macd - signal
+        
+        # 计算均线
+        data['MA20'] = data['Close'].rolling(window=20).mean()
+        data['MA200'] = data['Close'].rolling(window=200).mean()
+        
+        if figure is None:
+            fig = Figure(figsize=(10, 8))
+        else:
+            fig = figure
+            # 确保完全清除之前的图表
+            fig.clear()
+        
+        # 调整子图比例，价格图占更多空间，MACD图放在下方
+        gs = fig.add_gridspec(2, 1, height_ratios=[2, 1])
+        
+        # 价格子图
+        ax1 = fig.add_subplot(gs[0])
+        ax1.plot(data.index, data['Close'], label='Close', linewidth=1.5)
+        ax1.plot(data.index, data['MA20'], label='MA20', linewidth=1.5, color='orange')
+        ax1.plot(data.index, data['MA200'], label='MA200', linewidth=1.5, color='purple')
+        
+        # 标记当前股价
+        current_price = data['Close'].iloc[-1]
+        # 确保current_price是标量值而不是Series
+        if isinstance(current_price, pd.Series):
+            current_price = float(current_price.iloc[-1])
+        
+        ax1.scatter(data.index[-1], current_price, color='red', s=50, zorder=5)
+        ax1.annotate(f'${current_price:.2f}', 
+                    xy=(data.index[-1], current_price),
+                    xytext=(10, 10),
+                    textcoords='offset points',
+                    fontweight='bold',
+                    color='red')
+        
+        # 标记MA20当前值
+        ma20_value = data['MA20'].iloc[-1]
+        if not np.isnan(ma20_value):  # 确保MA20值不是NaN
+            # 确保ma20_value是标量值
+            if isinstance(ma20_value, pd.Series):
+                ma20_value = float(ma20_value.iloc[-1])
+                
+            ax1.annotate(f'MA20: ${ma20_value:.2f}',
+                        xy=(data.index[-1], ma20_value),
+                        xytext=(10, -40),  # 将y方向的偏移从-20改为-40
+                        textcoords='offset points',
+                        fontweight='bold',
+                        color='orange')
+            
+        # 标记MA200当前值
+        ma200_value = data['MA200'].iloc[-1]
+        if not np.isnan(ma200_value):  # 确保MA200值不是NaN
+            if isinstance(ma200_value, pd.Series):
+                ma200_value = float(ma200_value.iloc[-1])
+                
+            ax1.annotate(f'MA200: ${ma200_value:.2f}',
+                        xy=(data.index[-1], ma200_value),
+                        xytext=(10, -70),  # 在MA20下方显示
+                        textcoords='offset points',
+                        fontweight='bold',
+                        color='purple')
+        
+        ax1.set_title(f'{ticker} Price Trend')
+        ax1.set_ylabel('Price')
+        ax1.legend(loc='upper left')
+        ax1.grid(True)
+        
+        # MACD子图 - 放在下方
+        ax2 = fig.add_subplot(gs[1], sharex=ax1)
+        ax2.plot(data.index, macd, label='MACD', color='blue', linewidth=1.2)
+        ax2.plot(data.index, signal, label='Signal', color='red', linewidth=1.2)
+        
+        # 绘制MACD直方图
+        # 确保数据是一维数组
+        if isinstance(histogram, pd.Series):
+            histogram = histogram.values
+        
+        # 创建正值和负值掩码
+        positive_mask = histogram >= 0
+        negative_mask = histogram < 0
+        
+        # 使用掩码创建正值和负值数组
+        zeros = np.zeros_like(histogram)
+        positive_values = np.where(positive_mask, histogram, zeros)
+        negative_values = np.where(negative_mask, histogram, zeros)
+        
+        # 绘制直方图
+        ax2.bar(data.index[positive_mask], positive_values[positive_mask], 
+                color='green', alpha=0.5, label='Histogram+')
+        ax2.bar(data.index[negative_mask], negative_values[negative_mask], 
+                color='red', alpha=0.5, label='Histogram-')
+        
+        ax2.axhline(y=0, color='black', linestyle='-')
+        ax2.set_title('MACD')
+        ax2.set_ylabel('MACD Value')
+        ax2.set_xlabel('Date')
+        ax2.legend(loc='upper left')
+        ax2.grid(True)
+        
+        fig.tight_layout()
+        return fig
             
     def auto_detect_sentiment(self, ticker):
         """自动判断市场情绪（突破前高+放量、横盘震荡、放量破位）"""
@@ -455,9 +567,9 @@ class StockProcessor:
             print(f"Error getting data for {ticker}: {e}")
             return pd.DataFrame()
     
-    def plot_stock_chart(self, ticker, figure=None):
+    def plot_stock_chart(self, ticker, figure=None, period='1y'):
         """绘制股票走势图和MACD图"""
-        data = self.get_stock_data(ticker)
+        data = self.get_stock_data(ticker, period=period)
         
         if data.empty:
             return None
@@ -488,31 +600,29 @@ class StockProcessor:
         ax1.plot(data.index, data['MA20'], label='MA20', linewidth=1.5, color='orange')
         ax1.plot(data.index, data['MA200'], label='MA200', linewidth=1.5, color='purple')
         
-        # 标记当前股价
-        current_price = data['Close'].iloc[-1]
-        # 确保current_price是标量值而不是Series
-        if isinstance(current_price, pd.Series):
-            current_price = current_price.iloc[-1]
+        # 标记当前股价和MA20
+        current_price = float(data['Close'].iloc[-1]) if isinstance(data['Close'].iloc[-1], pd.Series) else data['Close'].iloc[-1]
+        ma20_value = float(data['MA20'].iloc[-1]) if isinstance(data['MA20'].iloc[-1], pd.Series) else data['MA20'].iloc[-1]
+        
+        # 绘制标记点和标注
         ax1.scatter(data.index[-1], current_price, color='red', s=50, zorder=5)
         ax1.annotate(f'${current_price:.2f}', 
                     xy=(data.index[-1], current_price),
-                    xytext=(10, 0),
+                    xytext=(10, 20),
                     textcoords='offset points',
                     fontweight='bold',
                     color='red')
         
-        # 标记MA20当前值
-        ma20_value = data['MA20'].iloc[-1]
-        if not np.isnan(ma20_value):  # 确保MA20值不是NaN
+        if not np.isnan(ma20_value):
             ax1.annotate(f'MA20: ${ma20_value:.2f}',
                         xy=(data.index[-1], ma20_value),
-                        xytext=(10, -15),
+                        xytext=(10, -10),
                         textcoords='offset points',
                         fontweight='bold',
                         color='orange')
         
-        ax1.set_title(f'{ticker} 价格走势')
-        ax1.set_ylabel('价格')
+        ax1.set_title(f'{ticker} Price Trend')
+        ax1.set_ylabel('Price')
         ax1.legend(loc='upper left')
         ax1.grid(True)
         
@@ -521,20 +631,30 @@ class StockProcessor:
         ax2.plot(data.index, macd, label='MACD', color='blue', linewidth=1.2)
         ax2.plot(data.index, signal, label='Signal', color='red', linewidth=1.2)
         
-        # 使用fill_between绘制柱状图
-        positive = histogram.copy()
-        negative = histogram.copy()
-        positive[positive < 0] = 0
-        negative[negative > 0] = 0
+        # 绘制MACD直方图
+        # 确保数据是一维数组
+        if isinstance(histogram, pd.Series):
+            histogram = histogram.values
         
-        # 绘制正值和负值
-        ax2.fill_between(data.index, 0, positive, color='green', alpha=0.5, label='Histogram+')
-        ax2.fill_between(data.index, 0, negative, color='red', alpha=0.5, label='Histogram-')
+        # 创建正值和负值掩码
+        positive_mask = histogram >= 0
+        negative_mask = histogram < 0
+        
+        # 使用掩码创建正值和负值数组
+        zeros = np.zeros_like(histogram)
+        positive_values = np.where(positive_mask, histogram, zeros)
+        negative_values = np.where(negative_mask, histogram, zeros)
+        
+        # 绘制直方图
+        ax2.bar(data.index[positive_mask], positive_values[positive_mask], 
+                color='green', alpha=0.5, label='Histogram+')
+        ax2.bar(data.index[negative_mask], negative_values[negative_mask], 
+                color='red', alpha=0.5, label='Histogram-')
         
         ax2.axhline(y=0, color='black', linestyle='-')
         ax2.set_title('MACD')
-        ax2.set_ylabel('MACD值')
-        ax2.set_xlabel('日期')
+        ax2.set_ylabel('MACD Value')
+        ax2.set_xlabel('Date')
         ax2.legend(loc='upper left')
         ax2.grid(True)
         

@@ -1,11 +1,13 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
-# 暂时移除matplotlib相关导入
-# import matplotlib.pyplot as plt
-# from matplotlib.figure import Figure
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+# matplotlib相关导入
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 import time
+import pandas as pd
+import numpy as np
 from processor import StockProcessor
 
 class StockPortfolioApp:
@@ -54,19 +56,150 @@ class StockPortfolioApp:
         self.create_chart_frame()
         
     def create_chart_frame(self):
-        """创建股票图表显示区域 - 暂时禁用"""
-        # 图表功能暂时禁用
-        self.chart_frame = ttk.Frame(self.right_frame)
+        # Chart frame
+        self.chart_frame = tk.LabelFrame(self.right_frame, text="Stock Chart", bg="#f0f0f0", font=("Arial", 12, "bold"))
         self.chart_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
         
-        # 添加提示标签
-        self.chart_label = ttk.Label(self.chart_frame, text="图表功能暂时禁用", font=("Arial", 14))
-        self.chart_label.pack(expand=True)
+        # Create figure for matplotlib
+        self.figure = plt.Figure(figsize=(6, 4), dpi=100)
+        self.ax = self.figure.add_subplot(111)
         
+        # Create canvas
+        self.canvas = FigureCanvasTkAgg(self.figure, self.chart_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        
+        # Initial chart message
+        self.ax.text(0.5, 0.5, "Select a stock to view chart", ha="center", va="center", fontsize=12)
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.canvas.draw()
+
     def update_chart(self, ticker):
-        """更新股票图表 - 暂时禁用"""
-        # 图表功能暂时禁用
-        pass
+        """更新股票图表"""
+        if not ticker:
+            return
+        
+        # 清除旧图表
+        self.figure.clear()
+        
+        # 创建子图
+        gs = self.figure.add_gridspec(2, 1, height_ratios=[2, 1], hspace=0.3)
+        ax1 = self.figure.add_subplot(gs[0])
+        ax2 = self.figure.add_subplot(gs[1])
+        
+        # 获取历史数据
+        hist = self.processor.get_stock_data(ticker)
+        if hist.empty:
+            # 如果没有数据，显示提示信息
+            self.ax.text(0.5, 0.5, "Unable to get stock data", ha="center", va="center", fontsize=12)
+            self.canvas.draw()
+            return
+            
+        dates = hist.index
+        
+        # 绘制K线图
+        from mplfinance.original_flavor import candlestick_ohlc
+        import matplotlib.dates as mdates
+
+        hist['Date_Num'] = mdates.date2num(hist.index.to_pydatetime())
+        ohlc = hist[['Date_Num', 'Open', 'High', 'Low', 'Close']].values
+
+        candlestick_ohlc(ax1, ohlc, width=0.6,
+                        colorup='#4CAF50', colordown='#F44336',
+                        alpha=1.0)
+
+        ax1.plot(dates, hist['Close'].rolling(window=20).mean(), label='20-day MA', color='#FFA726', linestyle='--')
+        ax1.set_title(f"{ticker} Price Trend", pad=15)
+        ax1.set_ylabel("Price (USD)")
+        ax1.legend(loc='upper left', framealpha=0.8)
+        ax1.grid(True, alpha=0.3)
+        
+        # 计算并绘制MACD
+        exp1 = hist['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = hist['Close'].ewm(span=26, adjust=False).mean()
+        macd = exp1 - exp2
+        signal = macd.ewm(span=9, adjust=False).mean()
+        hist_macd = macd - signal
+        
+        # 使用numpy的方式处理MACD直方图，避免Series比较的问题
+        import numpy as np
+        # 确保数据是一维数组
+        if isinstance(hist_macd, pd.Series):
+            hist_macd_values = hist_macd.values
+        else:
+            hist_macd_values = hist_macd
+            
+        # 创建正值和负值掩码
+        positive_mask = hist_macd_values >= 0
+        negative_mask = hist_macd_values < 0
+        
+        # 使用掩码绘制直方图 - 修复索引错误
+        try:
+            # 安全地绘制MACD直方图
+            positive_dates = [dates[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] >= 0]
+            positive_values = [hist_macd_values[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] >= 0]
+            
+            negative_dates = [dates[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] < 0]
+            negative_values = [hist_macd_values[i] for i in range(len(dates)) if i < len(hist_macd_values) and hist_macd_values[i] < 0]
+            
+            # 分别绘制正值和负值
+            if positive_dates:
+                ax2.bar(positive_dates, positive_values, color='#4CAF50', alpha=0.7, width=1)
+            if negative_dates:
+                ax2.bar(negative_dates, negative_values, color='#F44336', alpha=0.7, width=1)
+        except Exception as e:
+            print(f"Error plotting MACD histogram: {e}")
+            # 如果出现任何错误，跳过直方图绘制
+            pass
+        
+        ax2.plot(dates, macd, label='MACD', color='#2196F3', linewidth=1.5)
+        ax2.plot(dates, signal, label='Signal', color='#FF9800', linewidth=1.5)
+        ax2.axhline(y=0, color='black', linestyle='-', alpha=0.2)
+        ax2.set_xlabel("Date")
+        ax2.set_ylabel("MACD")
+        ax2.legend(loc='upper left', framealpha=0.8)
+        ax2.grid(True, alpha=0.3)
+        
+        ax1.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m-%d'))
+        ax2.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter('%Y-%m-%d'))
+        self.figure.autofmt_xdate()
+        
+        # 获取当前价格和持仓信息
+        try:
+            current_price = hist['Close'].iloc[-1]
+            position = 0
+            ideal_position = 0
+            
+            # 查找当前持仓
+            for stock in self.processor.portfolio['stocks']:
+                if stock['ticker'] == ticker:
+                    position = stock['shares']
+                    break
+                    
+            # 计算理想持仓（如果processor有相关方法）
+            try:
+                ideal_position = round(self.processor.calculate_kelly_position(ticker) * 
+                                      self.processor.portfolio['total_value'] / 100.0 / current_price)
+            except:
+                ideal_position = 0
+            
+            info_text = f"Current: {position} shares\nIdeal: {ideal_position} shares\nPrice: USD{current_price:.2f}"
+            ax1.text(0.02, 0.02, info_text, transform=ax1.transAxes, bbox=dict(facecolor='white', alpha=0.7))
+        except Exception as e:
+            print(f"Error displaying position info: {e}")
+        
+        # 强制刷新画布
+        self.canvas.draw()
+        try:
+            # 尝试使用flush_events强制处理事件
+            self.canvas.flush_events()
+        except:
+            pass  # 某些版本的matplotlib可能不支持flush_events
+        
+        # 强制更新图表框架
+        self.chart_frame.update()
+        self.chart_frame.update_idletasks()
+        self.canvas.draw()
         
     def create_menu(self):
         menubar = tk.Menu(self.root)
@@ -219,15 +352,6 @@ class StockPortfolioApp:
         self.advice_text.pack(fill=tk.X, padx=10, pady=10)
         self.advice_text.config(state=tk.DISABLED)
         
-    def create_chart_frame(self):
-        # 创建图表框架
-        self.chart_frame = ttk.LabelFrame(self.right_frame, text="股票图表")
-        self.chart_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
-        # 添加提示标签
-        self.chart_label = ttk.Label(self.chart_frame, text="图表功能暂时禁用", font=("Arial", 14))
-        self.chart_label.pack(expand=True)
-        
     def load_stocks(self):
         # 清空现有数据
         for item in self.stock_tree.get_children():
@@ -309,10 +433,36 @@ class StockPortfolioApp:
         # 确保所有标签都更新到最新状态
         self.detail_frame.update_idletasks()
         
-    def plot_chart(self, ticker):
-        # 图表功能暂时禁用
-        messagebox.showinfo("提示", "图表功能暂时禁用")
-        pass
+        # 更新图表 - 强制重绘
+        self.figure.clear()  # 确保先清除旧图表
+        
+        # 强制处理所有待处理的事件，确保UI状态更新
+        self.root.update()
+        self.root.update_idletasks()
+        
+        # 调用更新图表方法
+        self.update_chart(ticker)
+        
+        # 强制刷新画布并处理事件，确保图表立即显示
+        self.canvas.draw()
+        try:
+            self.canvas.flush_events()
+        except:
+            pass  # 某些版本的matplotlib可能不支持flush_events
+        
+        # 强制处理所有待处理的事件并更新整个窗口
+        self.root.update()
+        self.root.update_idletasks()
+        
+        # 确保图表框架完全更新
+        self.chart_frame.update()
+        self.chart_frame.update_idletasks()
+        
+        # 再次强制刷新画布，确保图表显示
+        try:
+            self.canvas.draw_idle()
+        except:
+            self.canvas.draw()  # 备选方案
         
     def add_stock(self):
         # 创建添加股票对话框
